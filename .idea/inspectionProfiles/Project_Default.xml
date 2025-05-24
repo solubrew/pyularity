@@ -1,0 +1,54 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ourVersions">
+        <value>
+          <list size="8">
+            <item index="0" class="java.lang.String" itemvalue="2.7" />
+            <item index="1" class="java.lang.String" itemvalue="3.13" />
+            <item index="2" class="java.lang.String" itemvalue="3.7" />
+            <item index="3" class="java.lang.String" itemvalue="3.8" />
+            <item index="4" class="java.lang.String" itemvalue="3.9" />
+            <item index="5" class="java.lang.String" itemvalue="3.10" />
+            <item index="6" class="java.lang.String" itemvalue="3.11" />
+            <item index="7" class="java.lang.String" itemvalue="3.12" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <value>
+          <list size="23">
+            <item index="0" class="java.lang.String" itemvalue="adblock" />
+            <item index="1" class="java.lang.String" itemvalue="baycomp" />
+            <item index="2" class="java.lang.String" itemvalue="sphinx-multiproject" />
+            <item index="3" class="java.lang.String" itemvalue="numpy" />
+            <item index="4" class="java.lang.String" itemvalue="openTSNE" />
+            <item index="5" class="java.lang.String" itemvalue="chardet" />
+            <item index="6" class="java.lang.String" itemvalue="recommonmark" />
+            <item index="7" class="java.lang.String" itemvalue="catboost" />
+            <item index="8" class="java.lang.String" itemvalue="serverfiles" />
+            <item index="9" class="java.lang.String" itemvalue="python-louvain" />
+            <item index="10" class="java.lang.String" itemvalue="Sphinx" />
+            <item index="11" class="java.lang.String" itemvalue="bottleneck" />
+            <item index="12" class="java.lang.String" itemvalue="xgboost" />
+            <item index="13" class="java.lang.String" itemvalue="keyrings.alt" />
+            <item index="14" class="java.lang.String" itemvalue="xlrd" />
+            <item index="15" class="java.lang.String" itemvalue="requests-cache" />
+            <item index="16" class="java.lang.String" itemvalue="AnyQt" />
+            <item index="17" class="java.lang.String" itemvalue="docutils" />
+            <item index="18" class="java.lang.String" itemvalue="qasync" />
+            <item index="19" class="java.lang.String" itemvalue="commonmark" />
+            <item index="20" class="java.lang.String" itemvalue="dictdiffer" />
+            <item index="21" class="java.lang.String" itemvalue="networkx" />
+            <item index="22" class="java.lang.String" itemvalue="ruamel.yaml" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SqlNoDataSourceInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>
