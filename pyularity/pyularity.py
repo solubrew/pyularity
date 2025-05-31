@@ -114,8 +114,15 @@ class Package(object):
         # sudo apt-get install libqt5-dev
         return self
 
+    def install_python_linux_debian(self):
+        """"""
+
+    def isntall_python_linux_arch(self):
+        """"""
+
     def install_python_macos(self):
         """"""
+        # TODO need to integrate hash checking
         python_url = f"https://www.python.org/ftp/python/{version}/python-{version}-macos11.pkg"
         python_archive = self.path / "python.pkg"
         download_file(python_url, str(python_archive))
@@ -182,18 +189,25 @@ class Package(object):
 
     def update_database(self, version_from, version_to):
         """"""
+        # TODO: need to hand updates to the applications update process
 
     def update_packages(self, version_from, version_to):
         """"""
         return self
 
 
-class Server(object):
+class Run(object):
     """"""
 
     def __init__(self, cfg=None):
         """"""
-        self.config = condor.Instruct(pxcfg).select("").override(cfg)
+        self.config = condor.Instruct(pxcfg).select("Run").override(cfg)
+        self.args = None
+
+    def run(self, args):
+        """"""
+        self.args = args
+        return self
 
 
 def download_file(url: str, output_path: str):

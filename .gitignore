@@ -1,3 +1,5 @@
 /cmds/
-/zz-work_/
+/dev/
 /zz-tomb_/
+/zz-work_/
+*.pyc

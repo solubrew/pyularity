@@ -2,28 +2,31 @@
 """
 ---
 <(META)>:
-	docid:
-	name:
-	description: >
-	version: 0.0.0.0.0.0
-	authority: filesystem
-	security: seclvl2
-	<(WT)>: -32
+    docid:
+    name:
+    description: >
+    version: 0.0.0.0.0.0
+    authority: filesystem
+    security: seclvl2
+    <(WT)>: -32
 """
 # -*- coding: utf-8 -*
 # ======================================Standard Library Modules======================================================||
 from os.path import abspath, dirname, join, exists
 from os import name
 import datetime as dt
+import time
 import subprocess
 import socket
 import threading
 
 # ======================================3rd Party Library Modules=====================================================||
+import zmq
 
 # ======================================Solutions Brewer Library Modules==============================================||
 from condor import condor
 from ogma.logma import Logma
+from pycurity.pyhash import text_hashing_function
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -43,14 +46,19 @@ class Launch(object):
         self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
         self.host = self.config.dikt.get("host", "127.0.0.1")
         self.is_installed = False
+        self.new_modules = []
+        self.manifest = ""
         self.port = self.config.dikt.get("port", 65432)
         self.processes = {}
         self.python_executable = None
+        self.scripts = None
+        self.socket = None
         self.running = False
         self.venv_path = None
 
     def check_installed(self):
         """"""
+        # Check for update via api.nchantdoffice.com
         return self
 
     def check_process(self, pid):
@@ -73,18 +81,55 @@ class Launch(object):
         else:
             logma.info(f"Process with PID {pid} not found.")
             return False
+        return self
 
     def check_update(self):
         """"""
+        return self
 
     def close(self):
         """"""
         self.stop_all_processes()
         return self
 
+    def close_instance(self, instance_id):
+        """"""
+        self.stop_process(instance_id)
+        if len(self.processes) == 0:
+            self.stop_server()
+        return self
+
+    def compare_manifest(self, manifest):
+        """"""
+        self.new_modules = []
+        for module in manifest:
+            if module not in self.manifest:
+                self.new_modules.append(module)
+        return True
+
+    def connect(self, server="tcp://127.0.0.1", port="5555"):
+        """"""
+        context = zmq.Context()  # Create a ZeroMQ context
+        self.socket = context.socket(zmq.REP)  # Create a REP (Reply) socket
+        self.socket.bind(f"{server}:{port}")  # Bind to a TCP address
+        return self
+
+    def get_hash(self, application_NCD):
+        """"""
+        _hash = ""  # connect to some blockchain service
+        return _hash
+
+    def get_manifest(self):
+        """"""
+        manifest = ""
+        self.compare_manifest(manifest)
+        if manifest != self.manifest:
+            self.manifest = manifest
+        return self
+
     def initialize_communications_server(self):
         """"""
-        self.comserv = threading.Trhead(target=self._start_server, daemon=True)
+        self.comserv = threading.Thread(target=self._start_server, daemon=True)
         self.comserv.start()
         self.running = True
         return self
@@ -92,6 +137,9 @@ class Launch(object):
     def launch_app(self):
         """"""
         cnt = 0
+        if self.check_update():
+            self.run_update()
+        self.initialize_communications_server()
         while not self.check_installed():
             if cnt > 3:
                 self.close()
@@ -111,21 +159,23 @@ class Launch(object):
             instance_id = ""
         if len(self.processes) > self.concurrent_limit:
             message = f"This Program is limited to {self.concurrent_limit} concurrent instances."
-            message += f"Please wait for a free instance to launch."
+            message += f"Please close an instance to launch another."
             gui.show(message)
             return None
-
         self.start_process("run", instance_id)
+        return self
+
+    def restart_processes(self):
+        """"""
         return self
 
     def run_update(self):
         """"""
-        # Check for update via api.nchantdoffice.com
-        # if update is available download the newest manifest
-        # verify manifest against blockchain based hash?
-        # run pip/uv update installed modules
-        # run pip/uv install any new modules
-        # restart all running processes
+        if self.check_update():
+            self._download()
+            self._install_modules()
+            self._update_modules()
+            self.restart_processes()
         return self
 
     def set_virtual_environment(self):
@@ -160,6 +210,7 @@ class Launch(object):
         except Exception as e:
             logma.info(f"Error starting process: {e}")
             return None
+        return self
 
     def stop_process(self, pid):
         """
@@ -175,6 +226,7 @@ class Launch(object):
             del self.processes[pid]
         else:
             logma.info(f"Process with PID {pid} not found.")
+        return self
 
     def stop_all_processes(self):
         """
@@ -183,6 +235,7 @@ class Launch(object):
         logma.info("Stopping all processes...")
         for pid in list(self.processes.keys()):
             self.stop_process(pid)
+        return self
 
     def stop_server(self):
         """Shuts down the callback server and all child processes."""
@@ -190,36 +243,55 @@ class Launch(object):
         if hasattr(self, "server_socket"):
             self.server_socket.close()
         logma.info("Callback server and all processes have been stopped.")
+        return self
 
-    def _start_callback_server(self):
-        """Starts the callback server that listens for messages from child processes."""
-        logma.info(f"Starting callback server on {self.host}:{self.port}")
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(5)
-        while self.running:
-            client_socket, address = self.server_socket.accept()
-            logma.info(f"Connected to child process at {address}")
-            threading.Thread(target=self._handle_client, args=(client_socket,), daemon=True).start()
+    def _copy_to_install(self):
+        """"""
+        return self
 
-    def _handle_client(self, client_socket):
-        """Handles incoming messages from a child process."""
-        with client_socket:
-            while self.running:
-                try:
-                    data = client_socket.recv(1024)
-                    if not data:
-                        break
-                    # Decode and logma.info the callback message
-                    message = data.decode("utf-8").strip()
-                    logma.info(f"[Callback Received]: {message}")
-                    if "new_instance:" in message:
-                        instance_id = message.split(":")[1]
-                        self.launch_instance(instance_id)
-                    # looking for calls to launch a new instance
-                except Exception as e:
-                    logma.info(f"Error receiving data from child process: {e}")
-                    break
+    def _download(self):
+        """"""
+        self.manifest = self.get_manifest()
+        self._copy_to_install()
+        self._hash = text_hashing_function(self.manifest)
+        return self
+
+    def _install_modules(self):
+        """"""
+        for module in self.manifest:
+            self.pip_install(module)
+        return self
+
+    def _start_server(self, *args, **kwargs):
+        """"""
+        self.connect()
+        while True:
+            # Wait for the next request from the client
+            message = self.socket.recv_string()  # Receive UTF-8 string
+            if message.split(":")[0] == "NEWINSTANCE":
+                self.launch_instance(message.split(":")[1])
+                self.socket.send_string("TRUE")  # Send UTF-8 string
+            elif message.split(":")[0] == "CLOSEINSTANCE":
+                self.close_instance(message.split(":")[1])
+                self.socket.send_string("TRUE")
+            elif message.split(":")[0] == "EXIT":
+                self.close_instance(message.split(":")[1])
+                break
+            time.sleep(10)
+        return self
+
+    def _update_modules(self):
+        """"""
+        for module in self.manifest:
+            self.pip_install(module)
+        return self
+
+    def _verify(self):
+        """"""
+        _hash = self.get_hash(self.application_NCD)
+        if _hash != self._hash:
+            return False
+        return True
 
 
 # ====================================================================================================================||
