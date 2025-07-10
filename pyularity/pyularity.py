@@ -12,22 +12,19 @@
 """
 # -*- coding: utf-8 -*
 # ======================================Standard Library Modules======================================================||
-from os.path import abspath, dirname, join
-import datetime as dt
-import os
-import sys
-import platform
-import urllib.request
+from os.path import abspath, dirname, join, exists, expanduser
+from os import name
+import time
 import subprocess
-import tarfile
-import zipfile
-from pathlib import Path
+import threading
 
 # ======================================3rd Party Library Modules=====================================================||
+import zmq
 
 # ======================================Solutions Brewer Library Modules==============================================||
 from condor import condor
 from ogma.logma import Logma
+from pycurity.pyhash import text_hashing_function
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -38,214 +35,285 @@ logma = Logma(__name__)
 pxcfg = join(here, "_data_", "pyularity.yaml")
 
 
-class Package(object):
+class Pyularity(object):
     """"""
 
     def __init__(self, cfg=None):
         """"""
-        self.config = condor.Instruct(pxcfg).select("Package").override(cfg)
-        self.application = None
-        self.is_executable = None
-        self.path = None
-        self.system = None
-        self.packages = None
-        self.version = None
-        self.set_packages()
-        self.set_version()
+        self.config = condor.Instruct(pxcfg).select("").override(cfg)
+        self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
+        self.host = self.config.dikt.get("host", "127.0.0.1")
+        self.is_installed = False
+        self.new_modules = []
+        self.manifest = ""
+        self.port = self.config.dikt.get("port", 65432)
+        self.processes = {}
+        self.python_executable = None
+        self.scripts = None
+        self.socket = None
+        self.running = False
+        self.venv_path = join(expanduser("~"), ".venv")
+        self.version = "0.0.1"
+        self.venv_path = "/home/solubrew/ENVs/uh"  # TODO replace
 
-    def check_install(self):
+    def check_installed(self):
         """"""
-        return self
+        # Check for update via api.nchantdoffice.com
+        return True
 
-    def check_package_hash(self):
-        """"""
-        return self
+    def check_process(self, pid):
+        """
+        Checks if a process is still running.
 
-    def check_run_method(self):
-        """"""
-        if sys.argv[0].endswith(".py"):
-            self.is_executable = False
-        elif hasattr(sys, "frozen"):
-            self.is_executable = True
-        else:
-            self.is_executable = True
-        return self
-
-    def create_virtual_environment(self):
-        """"""
-        return self
-
-    def get_package_install_manifest(self):
-        """"""
-        return self
-
-    def install_python(self, application, version="3.12.3"):
-        """Download and set up Python interpreter if not already installed."""
-        self.check_run_method()
-        self.system = platform.system().lower()
-        self.application = application
-        self.set_install_path(version)
-        if self.is_executable:
-            # URLs based on system
-            python_url = None
-            if self.system == "windows":
-                self.install_python_windows()
-            elif self.system == "linux":
-                self.install_python_linux()
-            elif self.system == "darwin":  # macOS
-                self.install_python_macos()
+        :param pid: Process ID to check.
+        :return: Boolean indicating whether the process is running.
+        """
+        if pid in self.processes:
+            process = self.processes[pid]
+            status = process.poll()
+            if status is None:
+                logma.info(f"Process {pid} is running.")
+                return True
             else:
-                print("Unsupported platform!")
-                sys.exit(1)
-        print(f"Python set up successfully in {python_dir}")
-        return python_dir
-
-    def install_python_linux(self):
-        """"""
-        python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
-        python_archive = self.path / "Python.tgz"
-        download_file(python_url, str(python_archive))
-        extract_archive(str(python_archive), python_dir)
-        # Compilation or setup may be needed on Linux
-        python_source_dir = python_dir / f"Python-{version}"
-        subprocess.run(["./configure"], cwd=python_source_dir)
-        subprocess.run(["make"], cwd=python_source_dir)
-        subprocess.run(["make", "install"], cwd=python_source_dir)
-        # sudo apt-get install libqt5-dev
+                logma.info(f"Process {pid} has stopped with exit code {status}.")
+                return False
+        else:
+            logma.info(f"Process with PID {pid} not found.")
+            return False
         return self
 
-    def install_python_linux_debian(self):
-        """"""
-
-    def isntall_python_linux_arch(self):
-        """"""
-
-    def install_python_macos(self):
-        """"""
-        # TODO need to integrate hash checking
-        python_url = f"https://www.python.org/ftp/python/{version}/python-{version}-macos11.pkg"
-        python_archive = self.path / "python.pkg"
-        download_file(python_url, str(python_archive))
-        # Specifically tailored for macOS package
-        subprocess.run(["sudo", "installer", "-pkg", str(python_archive), "-target", "/"])
-        return self
-
-    def install_python_windows(self):
-        """"""
-        python_url = f"https://www.python.org/ftp/python/{version}/python-{version}-embed-amd64.zip"
-        python_archive = self.path / "python-embed.zip"
-        download_file(python_url, str(python_archive))
-        extract_archive(str(python_archive), python_dir)
-        return self
-
-    def install_uv(self):
-        """Install the UV package manager."""
-        print("Installing UV package manager...")
-        try:
-            subprocess.run([sys.executable, "-m", "pip", "install", "uv"], check=True)
-        except subprocess.CalledProcessError:
-            print("Failed to install UV.")
-            sys.exit(1)
-        print("UV installed successfully!")
-        return self
-
-    def install_required_packages(self, packages):
-        """Install required Python packages using UV."""
-        print("Installing packages using UV...")
-        for pkg in packages:
-            # TODO need to check the package hash before install
-            print(f"Installing {pkg}...")
-            try:
-                subprocess.run(["uv", "install", pkg], check=True)
-            except subprocess.CalledProcessError:
-                print(f"Failed to install {pkg}")
-        print("All packages installed.")
-        return self
-
-    def set_install_path(self, path):
-        """"""
-        # Determine Python URL and paths
-        python_dir = Path(f".local/share/{self.application}/python")
-        if python_dir.exists():
-            print("Python is already installed.")
-            return python_dir  # Assume Python was set up in the same directory before
-        python_dir.mkdir(parents=True, exist_ok=True)  # Create installation directory
-        print(f"Setting up Python for {system}...")
-        return self
-
-    def set_environment_path(self, path):
+    def check_update(self):
         """"""
         return self
 
-    def set_packages(self):
+    def close(self):
         """"""
-        self.packages = self.config.dikt.get("packages", {})
+        self.stop_all_processes()
         return self
 
-    def set_version(self):
+    def close_instance(self, instance_id):
         """"""
-        self.version = self.config.dikt.get("version", {})
+        self.stop_process(instance_id)
+        if len(self.processes) == 0:
+            self.stop_server()
         return self
 
-    def update_database(self, version_from, version_to):
+    def compare_manifest(self, manifest):
         """"""
-        # TODO: need to hand updates to the applications update process
+        self.new_modules = []
+        for module in manifest:
+            if module not in self.manifest:
+                self.new_modules.append(module)
+        return True
 
-    def update_packages(self, version_from, version_to):
+    def connect(self, server="tcp://127.0.0.1", port="5555"):
+        """"""
+        context = zmq.Context()  # Create a ZeroMQ context
+        self.socket = context.socket(zmq.REP)  # Create a REP (Reply) socket
+        self.socket.bind(f"{server}:{port}")  # Bind to a TCP address
+        return self
+
+    def get_hash(self, application_NCD):
+        """"""
+        _hash = ""  # connect to some blockchain service
+        return _hash
+
+    def get_manifest(self):
+        """"""
+        manifest = ""
+        self.compare_manifest(manifest)
+        if manifest != self.manifest:
+            self.manifest = manifest
+        return self.manifest
+
+    def initialize_communications_server(self):
+        """"""
+        self.comserv = threading.Thread(target=self._start_server, daemon=True)
+        self.comserv.start()
+        self.running = True
+        return self
+
+    def launch_app(self):
+        """"""
+        initialize = True
+        loop = 0
+        while True:
+            logma.info(f"Loop {loop}")
+            cnt = 0
+            if self.check_update():
+                self.run_update()
+            while not self.check_installed():
+                if cnt > 3:
+                    self.close()
+                    break
+                while True:
+                    self.start_process("install")
+                    if not self.check_process(self.start_process("Install")):
+                        break
+                cnt += 1
+            if initialize:
+                self.initialize_communications_server()
+                logma.info("Launch Instance")
+                self.set_virtual_environment()
+                self.launch_instance()
+                initialize = False
+            # check comms
+            # check processes
+            for process in self.processes:
+                if self.check_process(process):
+                    continue
+                else:
+                    logma.info(f"Process {process} has stopped. Restarting Instance.")
+            time.sleep(10)
+            loop += 1
+        return self
+
+    def launch_instance(self, instance_id=None, *args, **kwargs):
+        """"""
+        if instance_id is None:
+            instance_id = None
+        if len(self.processes) > self.concurrent_limit:
+            message = f"This Program is limited to {self.concurrent_limit} concurrent instances."
+            message += f"Please close an instance to launch another."
+            gui.show(message)
+            return None
+        script = "/home/solubrew/iverse/SB/3_Functions/Projects/NchantdOffice/3_Work/1_DELTA/nchantdoffice/cmds/runNchantdOffice.py"
+        # script = "/home/solubrew/iverse/SB/3_Functions/Projects/Pyularity/3_Work/1_DELTA/pyularity/cmds/.py"
+        self.start_process(script)
+        return self
+
+    def restart_processes(self):
         """"""
         return self
 
-
-class Run(object):
-    """"""
-
-    def __init__(self, cfg=None):
+    def run_update(self):
         """"""
-        self.config = condor.Instruct(pxcfg).select("Run").override(cfg)
-        self.args = None
-
-    def run(self, args):
-        """"""
-        self.args = args
+        if self.check_update():
+            self._download()
+            self._install_modules()
+            self._update_modules()
+            self.restart_processes()
         return self
 
+    def set_virtual_environment(self, name="linux"):
+        """"""
+        logma.info(f"Set Virtual Environment {self.venv_path}")
+        if not exists(self.venv_path):
+            raise Exception("Python Not Properly Installed for Pyularity based Application")
+        if name == "linux":
+            logma.info(f"Linux Execute")
+            self.python_executable = join(self.venv_path, "bin", "python3.12")
+        elif name == "posix":
+            self.python_executable = join(self.venv_path, "bin", "python")
+        elif name == "nt":
+            self.python_executable = join(self.venv_path, "Scripts", "python.exe")
+        else:
+            raise Exception(f"Unknown OS Type: {name}")
+        return self
 
-def download_file(url: str, output_path: str):
-    """Download a file from a URL into a specific location."""
-    print(f"Downloading {url}...")
-    urllib.request.urlretrieve(url, output_path)
-    print(f"Downloaded file to {output_path}")
+    def start_process(self, script_path, *args):
+        """
+        Starts a Python script as a separate process.
 
+        :param script_path: Path to the Python script to run.
+        :param args: Additional arguments for the script.
+        :return: Process ID.
+        """
+        cmd = [self.python_executable, script_path, *args]
+        # try:
+        logma.info(f"Starting process: {cmd}")
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.processes[process.pid] = process
+        # stdout, stderr = process.communicate()
+        # logma.info(f"Process stdout: {stdout}")
+        # logma.info(f"Process stderr: {stderr}")
+        logma.info(f"Started process with PID: {process.pid}")
+        return process.pid
+        # except Exception as e:
+        #     logma.info(f"Error starting process: {e}")
+        #     return None
+        # return self
 
-def extract_archive(file_path: str, extract_to: str):
-    """Extract a .zip or .tar.gz archive."""
-    print(f"Extracting {file_path} to {extract_to}...")
-    if file_path.endswith(".zip"):
-        with zipfile.ZipFile(file_path, "r") as zip_ref:
-            zip_ref.extractall(extract_to)
-    elif file_path.endswith(".tar.gz"):
-        with tarfile.open(file_path, "r:gz") as tar_ref:
-            tar_ref.extractall(extract_to)
-    else:
-        print("Unsupported archive format!")
-        sys.exit(1)
-    print(f"Extraction complete: {extract_to}")
+    def stop_process(self, pid):
+        """
+        Stops a process by sending a SIGTERM signal.
 
+        :param pid: Process ID to stop.
+        """
+        if pid in self.processes:
+            process = self.processes[pid]
+            process.terminate()  # Send SIGTERM
+            process.wait()  # Wait for the process to terminate
+            logma.info(f"Terminated process with PID: {pid}")
+            del self.processes[pid]
+        else:
+            logma.info(f"Process with PID {pid} not found.")
+        return self
 
-def main():
-    print("Starting self-contained Python installer...")
-    # Step 1: Set up Python environment
-    python_dir = setup_python()
-    if not python_dir:
-        sys.exit("Could not set up Python!")
-    # Ensure Python executable points to the newly installed one
-    python_executable = python_dir / ("python.exe" if platform.system().lower() == "windows" else "python3")
-    if python_executable.exists():
-        sys.executable = str(python_executable)
-    else:
-        print("Error: Python executable not found after installation.")
-        sys.exit(1)
-    print("Installation complete! You can now use Python and your packages.")
+    def stop_all_processes(self):
+        """
+        Stops all managed processes.
+        """
+        logma.info("Stopping all processes...")
+        for pid in list(self.processes.keys()):
+            self.stop_process(pid)
+        return self
+
+    def stop_server(self):
+        """Shuts down the callback server and all child processes."""
+        self.running = False
+        if hasattr(self, "server_socket"):
+            self.server_socket.close()
+        logma.info("Callback server and all processes have been stopped.")
+        return self
+
+    def _copy_to_install(self):
+        """"""
+        return self
+
+    def _download(self):
+        """"""
+        self.manifest = self.get_manifest()
+        self._copy_to_install()
+        self._hash = text_hashing_function(self.manifest)
+        return self
+
+    def _install_modules(self):
+        """"""
+        for module in self.manifest:
+            self.pip_install(module)
+        return self
+
+    def _start_server(self, *args, **kwargs):
+        """"""
+        self.connect()
+        while True:
+            # Wait for the next request from the client
+            message = self.socket.recv_string()  # Receive UTF-8 string
+            if message.split(":")[0] == "NEWINSTANCE":
+                self.launch_instance(message.split(":")[1])
+                self.socket.send_string("TRUE")  # Send UTF-8 string
+            elif message.split(":")[0] == "CLOSEINSTANCE":
+                self.close_instance(message.split(":")[1])
+                self.socket.send_string("TRUE")
+            elif message.split(":")[0] == "EXIT":
+                self.close_instance(message.split(":")[1])
+                break
+            time.sleep(10)
+        return self
+
+    def _update_modules(self):
+        """"""
+        for module in self.manifest:
+            self.pip_install(module)
+        return self
+
+    def _verify(self):
+        """"""
+        _hash = self.get_hash(self.application_NCD)
+        if _hash != self._hash:
+            return False
+        return True
 
 
 # ====================================================================================================================||
