@@ -17,6 +17,8 @@ from os import name
 import time
 import subprocess
 import threading
+from sys import argv
+import datetime as dt
 
 # ======================================3rd Party Library Modules=====================================================||
 import zmq
@@ -40,11 +42,13 @@ class Pyularity(object):
 
     def __init__(self, cfg=None):
         """"""
-        self.config = condor.Instruct(pxcfg).select("").override(cfg)
+        self.config = condor.Instruct(pxcfg).select("Pyularity").override(cfg)
+        # add manifest
         self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
         self.host = self.config.dikt.get("host", "127.0.0.1")
         self.is_installed = False
         self.new_modules = []
+        self.new_instances = []
         self.manifest = ""
         self.port = self.config.dikt.get("port", 65432)
         self.processes = {}
@@ -55,6 +59,15 @@ class Pyularity(object):
         self.venv_path = join(expanduser("~"), ".venv")
         self.version = "0.0.1"
         self.venv_path = "/home/solubrew/ENVs/uh"  # TODO replace
+
+    def add_process(self, process):
+        """"""
+        self.processes[process.pid] = process
+        return self
+
+    def check_comms(self):
+        """"""
+        return False
 
     def check_installed(self):
         """"""
@@ -68,6 +81,7 @@ class Pyularity(object):
         :param pid: Process ID to check.
         :return: Boolean indicating whether the process is running.
         """
+        self.failed_processes = []
         if pid in self.processes:
             process = self.processes[pid]
             status = process.poll()
@@ -75,6 +89,7 @@ class Pyularity(object):
                 logma.info(f"Process {pid} is running.")
                 return True
             else:
+                self.failed_processes.append(pid)
                 logma.info(f"Process {pid} has stopped with exit code {status}.")
                 return False
         else:
@@ -152,21 +167,33 @@ class Pyularity(object):
                         break
                 cnt += 1
             if initialize:
-                self.initialize_communications_server()
                 logma.info("Launch Instance")
                 self.set_virtual_environment()
+                self.initialize_communications_server()
                 self.launch_instance()
                 initialize = False
             # check comms
+            if self.check_comms():
+                for instance in self.new_instances:
+                    self.launch_instance(instance)
             # check processes
             for process in self.processes:
                 if self.check_process(process):
                     continue
                 else:
                     logma.info(f"Process {process} has stopped. Restarting Instance.")
+            for pid in self.failed_processes:
+                self.stop_process(pid)
+            self.failed_processes = []
             time.sleep(10)
             loop += 1
+            if len(self.processes) == 0:
+                break
         return self
+
+    def launch_independent(self):
+        """"""
+        # need to launch this page as an independent process to listen for communications
 
     def launch_instance(self, instance_id=None, *args, **kwargs):
         """"""
@@ -177,9 +204,10 @@ class Pyularity(object):
             message += f"Please close an instance to launch another."
             gui.show(message)
             return None
-        script = "/home/solubrew/iverse/SB/3_Functions/Projects/NchantdOffice/3_Work/1_DELTA/nchantdoffice/cmds/runNchantdOffice.py"
-        # script = "/home/solubrew/iverse/SB/3_Functions/Projects/Pyularity/3_Work/1_DELTA/pyularity/cmds/.py"
-        self.start_process(script)
+        # How do I encapsulate this when in stalled via pip? will need to find it in the venv i guess
+        #
+        script = "/home/solubrew/iverse/SB/3_Functions/Projects/NchantdOffice/3_Work/1_DELTA/nchantdoffice/nchantdoffice/nchantdoffice.py"
+        self.start_process(script, instance_id)
         return self
 
     def restart_processes(self):
@@ -211,7 +239,7 @@ class Pyularity(object):
             raise Exception(f"Unknown OS Type: {name}")
         return self
 
-    def start_process(self, script_path, *args):
+    def start_process(self, script_path, instance_id=None, *args, **kwargs):
         """
         Starts a Python script as a separate process.
 
@@ -219,14 +247,13 @@ class Pyularity(object):
         :param args: Additional arguments for the script.
         :return: Process ID.
         """
+        if instance_id is not None:
+            args = [instance_id] + list(args)
         cmd = [self.python_executable, script_path, *args]
         # try:
         logma.info(f"Starting process: {cmd}")
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self.processes[process.pid] = process
-        # stdout, stderr = process.communicate()
-        # logma.info(f"Process stdout: {stdout}")
-        # logma.info(f"Process stderr: {stderr}")
+        self.add_process(process)
         logma.info(f"Started process with PID: {process.pid}")
         return process.pid
         # except Exception as e:
@@ -242,6 +269,10 @@ class Pyularity(object):
         """
         if pid in self.processes:
             process = self.processes[pid]
+            stdout, stderr = process.communicate()
+            # send these to a written file somewhere
+            logma.info(f"Process stdout: {stdout}")
+            logma.info(f"Process stderr: {stderr}")
             process.terminate()  # Send SIGTERM
             process.wait()  # Wait for the process to terminate
             logma.info(f"Terminated process with PID: {pid}")
@@ -316,6 +347,19 @@ class Pyularity(object):
         return True
 
 
+def run(args):
+    """"""
+    cfg = {}
+    disk = Pyularity(cfg)
+    disk.launch_app()
+
+
+if __name__ == "__main__":
+    start = dt.datetime.now()
+    logma.info("Start")
+    run(argv)
+    end = dt.datetime.now()
+    logma.info(f"End Duration {end - start}")
 # ====================================================================================================================||
 
 #

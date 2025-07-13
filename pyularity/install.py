@@ -155,6 +155,22 @@ class Package(object):
         print("All packages installed.")
         return self
 
+    def install_via_pip(self):
+        """Install the pip package manager."""
+        return self
+
+    def install_via_pip_git(self):
+        """"""
+        return self
+
+    def install_via_pip_git_local(self):
+        """"""
+        return self
+
+    def install_via_pip_local(self):
+        """"""
+        return self
+
     def set_install_path(self, path):
         """"""
         # Determine Python URL and paths
@@ -186,20 +202,6 @@ class Package(object):
 
     def update_packages(self, version_from, version_to):
         """"""
-        return self
-
-
-class Run(object):
-    """"""
-
-    def __init__(self, cfg=None):
-        """"""
-        self.config = condor.Instruct(pxcfg).select("Run").override(cfg)
-        self.args = None
-
-    def run(self, args):
-        """"""
-        self.args = args
         return self
 
 
