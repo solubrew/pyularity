@@ -148,6 +148,16 @@ class Pyularity(object):
         self.running = True
         return self
 
+    def install_pip(self, location):
+        """"""
+        if location.startswith("http"):
+            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
+        elif location.startswith("file"):
+            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]  # , "--no-deps"]
+        else:
+            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
+        self.run(cmd)
+
     def launch_app(self):
         """"""
         initialize = True
@@ -213,6 +223,14 @@ class Pyularity(object):
     def restart_processes(self):
         """"""
         return self
+
+    def run(self, cmd):
+        """"""
+        logma.info(f"Running Command: {cmd}")
+        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        self.add_process(process)
+        logma.info(f"Started process with PID: {process.pid}")
+        return process.pid
 
     def run_update(self):
         """"""
