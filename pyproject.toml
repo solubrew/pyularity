@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyularity"
-version = "0.0.1"
+version = "0.0.1.0.1.2"
 description = "Your project description"
 readme = { file = "README.rst", content-type = "text/x-rst" }
 license = { file = "LICENSE" }
@@ -56,7 +56,7 @@ exclude = [
 ]
 [tool.setuptools.package-data]
 # keys are package names; globs are relative to the package dirs
-nchantdoffice = [
+pyularity = [
   "**/*.yaml",
 ]
 [tool.black]
