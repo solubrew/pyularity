@@ -13,14 +13,17 @@
 # -*- coding: utf-8 -*
 # ======================================Standard Library Modules======================================================||
 from os.path import abspath, dirname, join, exists
+from os import makedirs
 import sys
 import subprocess
+from pathlib import Path
 
 # ======================================3rd Party Library Modules=====================================================||
 
 # ======================================Solutions Brewer Library Modules==============================================||
 from condor import condor
 from ogma.logma import Logma
+from pycurity.pyvice import Device
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -40,7 +43,8 @@ class Package(object):
         self.application = None
         self.is_executable = None
         self.path = None
-        self.system = None
+        self.python_executeable = None
+        self.device = Device()
         self.packages = None
         self.version = None
         self.set_packages()
@@ -62,10 +66,6 @@ class Package(object):
             self.is_executable = True
         else:
             self.is_executable = True
-        return self
-
-    def create_virtual_environment(self):
-        """"""
         return self
 
     def get_package_install_manifest(self):
@@ -165,24 +165,13 @@ class Package(object):
 
     def install_via_pip_git_local(self):
         """"""
+        for package, branch in self.modules.items():
+            file_ = f"git+file:///{package}.git@{branch}"
+            cmd = [self.python_executeable, "-m", "pip", "install", "--upgrade", file_]
+            subprocess.run(cmd, check=True)
         return self
 
     def install_via_pip_local(self):
-        """"""
-        return self
-
-    def set_install_path(self, path):
-        """"""
-        # Determine Python URL and paths
-        python_dir = Path(f".local/share/{self.application}/python")
-        if python_dir.exists():
-            print("Python is already installed.")
-            return python_dir  # Assume Python was set up in the same directory before
-        python_dir.mkdir(parents=True, exist_ok=True)  # Create installation directory
-        print(f"Setting up Python for {system}...")
-        return self
-
-    def set_environment_path(self, path):
         """"""
         return self
 
@@ -190,6 +179,70 @@ class Package(object):
         """"""
         self.packages = self.config.dikt.get("packages", {})
         return self
+
+    def create_virtual_environment_path(self):
+        """"""
+        if self.device.system.lower() == "linux":
+            self.venv_path = Path(f"~/.local/share/{self.application}/python")
+        elif self.device.system.lower() == "windows":
+            self.venv_path = Path(f"~\\{self.application}\\python")
+        elif self.device.system.lower() == "macos":
+            self.venv_path = Path(f"~/Library/Application Support/{self.application}/python")
+        elif self.device.system.lower() == "chromeos":
+            self.venv_path = Path(f"~/opt/{self.application}/python")
+        else:
+            print(f"Unsupported platform! {self.device.system}")
+            sys.exit(1)
+        makedirs(self.venv_path, exist_ok=True)
+        return self
+
+    def setup_virtual_environment(self):
+        """"""
+        logma.info("Setting up virtual environment...")
+        self.create_virtual_environment_path()
+        if self.device.system.lower() == "linux":
+            try:
+                cmd = [f"virtualenv", "-p=/usr/bin/python{self.PYTHON_VERSION}", self.venv_path]
+                subprocess.run(cmd, check=True, text=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logma.error(f"Error setting up virtual environment: {e}")
+                return None
+            except FileNotFoundError:
+                logma.error("Python not found. Please install Python and try again.")
+                return None
+        elif self.device.system.lower() == "windows":
+            try:
+                cmd = [f"virtualenv", "-p=/usr/bin/python{self.PYTHON_VERSION}", self.venv_path]
+                subprocess.run(cmd, check=True, text=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logma.error(f"Error setting up virtual environment: {e}")
+                return None
+            except FileNotFoundError:
+                logma.error("Python not found. Please install Python and try again.")
+                return None
+        elif self.device.system.lower() == "macos":
+            try:
+                cmd = [f"virtualenv", "-p=/usr/bin/python{self.PYTHON_VERSION}", self.venv_path]
+                subprocess.run(cmd, check=True, text=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logma.error(f"Error setting up virtual environment: {e}")
+                return None
+            except FileNotFoundError:
+                logma.error("Python not found. Please install Python and try again.")
+                return None
+        elif self.device.system.lower() == "chromeos":
+            try:
+                cmd = [f"virtualenv", "-p=/usr/bin/python{self.PYTHON_VERSION}", self.venv_path]
+                subprocess.run(cmd, check=True, text=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                logma.error(f"Error setting up virtual environment: {e}")
+                return None
+            except FileNotFoundError:
+                logma.error("Python not found. Please install Python and try again.")
+                return None
+        else:
+            print(f"Unsupported platform! {self.device.system}")
+            sys.exit(1)
 
     def set_version(self):
         """"""

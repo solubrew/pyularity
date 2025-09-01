@@ -20,7 +20,6 @@ import datetime as dt
 # ======================================Solutions Brewer Library Modules==============================================||
 from condor import condor
 from ogma.logma import Logma
-from nchantrs.dialogs.dialogs import NchantdCape
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -28,36 +27,10 @@ log = True
 logma = Logma(__name__)
 
 # ====================================================================================================================||
-pxcfg = join(here, "_data_", "gui.yaml")
+pxcfg = join(here, "_data_", ".yaml")
 
 
-class NchantdPyularity(NchantdCape):
-    """"""
-
-    def __init__(self, parent=None, cfg=None):
-        """ """
-        super().__init__(parent, cfg)
-        self.parent = parent
-        self.config.override(condor.Instruct(pxcfg).select("NchantdPyularity"))
-        if self.parent:
-            self.config.override(parent.config)
-        self.config.override(cfg)
-
-    def initModel(self, cfg=None):
-        """"""
-        super().initModel(cfg)
-        return self
-
-    def initView(self, cfg=None):
-        """"""
-        super().initView(cfg)
-        return self
-
-    def initWidget(self):
-        """"""
-        self.initModel()
-        self.initView()
-        return self
+# build out dialogs for controlling app launch
 
 
 # ====================================================================================================================||

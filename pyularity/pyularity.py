@@ -27,6 +27,7 @@ import zmq
 from condor import condor
 from ogma.logma import Logma
 from pycurity.pyhash import text_hashing_function
+from pyularity.install import Package
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -40,38 +41,42 @@ pxcfg = join(here, "_data_", "pyularity.yaml")
 class Pyularity(object):
     """"""
 
+    VERSION = "0.0.1"
+    HOST = "127.0.0.1"
+    PORT = 65432
+    PYTHON = "python"
+    PYTHON_VERSION = "3.12"
+    VENV_PATH = join(expanduser("~"), ".venv")
+
     def __init__(self, cfg=None):
         """"""
         self.config = condor.Instruct(pxcfg).select("Pyularity").override(cfg)
-        # add manifest
+        self.app_name = self.config.dikt.get("app_name", None)
         self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
-        self.host = self.config.dikt.get("host", "127.0.0.1")
+        self.host = self.HOST
         self.is_installed = False
+        self.main_app = None
+        self.manifest = {}
         self.new_modules = []
         self.new_instances = []
-        self.manifest = ""
-        self.port = self.config.dikt.get("port", 65432)
+        self.package = Package(self.config)
+        self.port = self.PORT
         self.processes = {}
         self.python_executable = None
         self.scripts = None
         self.socket = None
+        self.startup_app = None
         self.running = False
-        self.venv_path = join(expanduser("~"), ".venv")
+        self.venv_path = self.VENV_PATH
         self.version = "0.0.1"
-        self.venv_path = "/home/solubrew/ENVs/uh"  # TODO replace
 
     def add_process(self, process):
         """"""
         self.processes[process.pid] = process
         return self
 
-    def check_comms(self):
-        """"""
-        return False
-
     def check_installed(self):
         """"""
-        # Check for update via api.nchantdoffice.com
         return True
 
     def check_process(self, pid):
@@ -163,11 +168,10 @@ class Pyularity(object):
         initialize = True
         loop = 0
         while True:
-            logma.info(f"Loop {loop}")
+            logma.info("Launch Instance")
+            self.set_virtual_environment()
             cnt = 0
-            if self.check_update():
-                self.run_update()
-            while not self.check_installed():
+            while not self.check_installed():  # checking for python modules installed
                 if cnt > 3:
                     self.close()
                     break
@@ -176,9 +180,9 @@ class Pyularity(object):
                     if not self.check_process(self.start_process("Install")):
                         break
                 cnt += 1
+            if self.check_update():
+                self.run_update()
             if initialize:
-                logma.info("Launch Instance")
-                self.set_virtual_environment()
                 self.initialize_communications_server()
                 self.launch_instance()
                 initialize = False
@@ -201,10 +205,6 @@ class Pyularity(object):
                 break
         return self
 
-    def launch_independent(self):
-        """"""
-        # need to launch this page as an independent process to listen for communications
-
     def launch_instance(self, instance_id=None, *args, **kwargs):
         """"""
         if instance_id is None:
@@ -214,14 +214,8 @@ class Pyularity(object):
             message += f"Please close an instance to launch another."
             gui.show(message)
             return None
-        # How do I encapsulate this when in stalled via pip? will need to find it in the venv i guess
-        #
-        script = "/home/solubrew/iverse/SB/3_Functions/Projects/NchantdOffice/3_Work/1_DELTA/nchantdoffice/nchantdoffice/nchantdoffice.py"
+        script = f"python -m {self.app_name}"
         self.start_process(script, instance_id)
-        return self
-
-    def restart_processes(self):
-        """"""
         return self
 
     def run(self, cmd):
@@ -232,27 +226,28 @@ class Pyularity(object):
         logma.info(f"Started process with PID: {process.pid}")
         return process.pid
 
-    def run_update(self):
+    def set_main_app(self, app):
         """"""
-        if self.check_update():
-            self._download()
-            self._install_modules()
-            self._update_modules()
-            self.restart_processes()
+        self.main_app = app
+        return self
+
+    def set_startup_app(self, app):
+        """"""
+        self.startup_app = app
         return self
 
     def set_virtual_environment(self, name="linux"):
         """"""
         logma.info(f"Set Virtual Environment {self.venv_path}")
+        self.package.setup_virtual_environment()
         if not exists(self.venv_path):
             raise Exception("Python Not Properly Installed for Pyularity based Application")
         if name == "linux":
-            logma.info(f"Linux Execute")
-            self.python_executable = join(self.venv_path, "bin", "python3.12")
-        elif name == "posix":
-            self.python_executable = join(self.venv_path, "bin", "python")
-        elif name == "nt":
-            self.python_executable = join(self.venv_path, "Scripts", "python.exe")
+            self.python_executable = join(self.venv_path, "bin", f"{self.PYTHON}{self.PYTHON_VERSION}")
+        elif name == "macos":
+            self.python_executable = join(self.venv_path, "bin", self.PYTHON)
+        elif name == "windows":
+            self.python_executable = join(self.venv_path, "Scripts", f"{self.PYTHON}.exe")
         else:
             raise Exception(f"Unknown OS Type: {name}")
         return self
@@ -365,7 +360,7 @@ class Pyularity(object):
         return True
 
 
-def run(args):
+def main():
     """"""
     cfg = {}
     disk = Pyularity(cfg)
@@ -375,7 +370,7 @@ def run(args):
 if __name__ == "__main__":
     start = dt.datetime.now()
     logma.info("Start")
-    run(argv)
+    main()
     end = dt.datetime.now()
     logma.info(f"End Duration {end - start}")
 # ====================================================================================================================||
