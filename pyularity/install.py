@@ -17,6 +17,8 @@ from os import makedirs
 import sys
 import subprocess
 from pathlib import Path
+import urllib
+import zipfile
 
 # ======================================3rd Party Library Modules=====================================================||
 
@@ -24,6 +26,7 @@ from pathlib import Path
 from condor import condor
 from ogma.logma import Logma
 from pycurity.pyvice import Device
+from pyularity.download import download_python
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -95,9 +98,7 @@ class Package(object):
 
     def install_python_linux(self):
         """"""
-        python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
-        python_archive = self.path / "Python.tgz"
-        download_file(python_url, str(python_archive))
+        download_python(path, platform, version)
         extract_archive(str(python_archive), python_dir)
         # Compilation or setup may be needed on Linux
         python_source_dir = python_dir / f"Python-{version}"
@@ -116,18 +117,14 @@ class Package(object):
     def install_python_macos(self):
         """"""
         # TODO need to integrate hash checking
-        python_url = f"https://www.python.org/ftp/python/{version}/python-{version}-macos11.pkg"
-        python_archive = self.path / "python.pkg"
-        download_file(python_url, str(python_archive))
+        download_python(path, platform, version)
         # Specifically tailored for macOS package
         subprocess.run(["sudo", "installer", "-pkg", str(python_archive), "-target", "/"])
         return self
 
     def install_python_windows(self):
         """"""
-        python_url = f"https://www.python.org/ftp/python/{version}/python-{version}-embed-amd64.zip"
-        python_archive = self.path / "python-embed.zip"
-        download_file(python_url, str(python_archive))
+        download_python(path, platform, version)
         extract_archive(str(python_archive), python_dir)
         return self
 
@@ -256,13 +253,6 @@ class Package(object):
     def update_packages(self, version_from, version_to):
         """"""
         return self
-
-
-def download_file(url: str, output_path: str):
-    """Download a file from a URL into a specific location."""
-    print(f"Downloading {url}...")
-    urllib.request.urlretrieve(url, output_path)
-    print(f"Downloaded file to {output_path}")
 
 
 def extract_archive(file_path: str, extract_to: str):
