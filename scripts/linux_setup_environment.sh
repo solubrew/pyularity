@@ -35,6 +35,11 @@ DOWNLOAD_URL="https://www.python.org/ftp/python/$PYTHON_VERSION/$TARBALL"
 # Step 1: Install required dependencies (minimal set for building Python)
 echo "Installing build dependencies..."
 sudo apt update
+#required to use local/remote git file install of modules
+sudo apt install -y git
+#required by PySide6...not sure what to do long term
+sudo apt install -y libxcb-cursor0
+#required to build python from source
 sudo apt install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev wget tk-dev libbz2-dev
 
 # Step 2: Download Python source

@@ -26,7 +26,7 @@ env=fuh
 MINICONDA_INSTALLER="Miniconda3-latest-Linux-x86_64.sh"
 DOWNLOAD_URL="https://repo.anaconda.com/miniconda/$MINICONDA_INSTALLER"
 INSTALL_DIR="$HOME/miniconda3"
-ENV_NAME="my_python_313_env"
+ENV_NAME="$HOME/ENVs/${env}"
 
 # Step 1: Download Miniconda installer
 echo "Downloading Miniconda installer..."
@@ -50,10 +50,12 @@ conda update -y -n base conda
 
 # Step 5: Create a conda environment with Python 3.13
 echo "Creating conda environment '$ENV_NAME' with Python 3.13..."
+mkdir -p "$ENV_NAME"
 conda create -y -n "$ENV_NAME" python=3.13
 
 # Step 6: Cleanup
 rm "$MINICONDA_INSTALLER"
+rm -r "${INSTALL_DIR}"
 
 # Instructions for use
 echo "Installation complete!"
