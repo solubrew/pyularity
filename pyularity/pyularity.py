@@ -10,6 +10,7 @@
     security: seclvl2
     <(WT)>: -32
 """
+
 # -*- coding: utf-8 -*
 # ======================================Standard Library Modules======================================================||
 from os.path import abspath, dirname, join, exists, expanduser
@@ -24,8 +25,8 @@ import datetime as dt
 import zmq
 
 # ======================================Solutions Brewer Library Modules==============================================||
-from condor import condor
-from ogma.logma import Logma
+from kahndor import kahndor
+from kahndor.logma import Logma
 from pycurity.pyhash import text_hashing_function
 
 # ====================================================================================================================||
@@ -47,7 +48,7 @@ class Pyularity(object):
 
     def __init__(self, cfg=None):
         """"""
-        self.config = condor.Instruct(pxcfg).select("Pyularity").override(cfg)
+        self.config = kahndor.Instruct(pxcfg).select("Pyularity").override(cfg)
         self.app_name = self.config.dikt.get("app_name", None)
         self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
         self.app_path = None
