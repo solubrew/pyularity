@@ -27,7 +27,6 @@ import zmq
 from condor import condor
 from ogma.logma import Logma
 from pycurity.pyhash import text_hashing_function
-from pyularity.install import Package
 
 # ====================================================================================================================||
 here = join(dirname(__file__), "")  # ||
@@ -41,34 +40,31 @@ pxcfg = join(here, "_data_", "pyularity.yaml")
 class Pyularity(object):
     """"""
 
-    VERSION = "0.0.1"
     HOST = "127.0.0.1"
     PORT = 65432
     PYTHON = "python"
     PYTHON_VERSION = "3.12"
-    VENV_PATH = join(expanduser("~"), ".venv")
 
     def __init__(self, cfg=None):
         """"""
         self.config = condor.Instruct(pxcfg).select("Pyularity").override(cfg)
         self.app_name = self.config.dikt.get("app_name", None)
         self.concurrent_limit = self.config.dikt.get("concurrent_limit", 5)
-        self.host = self.HOST
+        self.app_path = None
+        self.venv_path = None
         self.is_installed = False
         self.main_app = None
         self.manifest = {}
         self.new_modules = []
         self.new_instances = []
-        self.package = Package(self.config)
-        self.port = self.PORT
+        self.package = None
         self.processes = {}
         self.python_executable = None
         self.scripts = None
         self.socket = None
         self.startup_app = None
         self.running = False
-        self.venv_path = self.VENV_PATH
-        self.version = "0.0.1"
+        self.version = None
 
     def add_process(self, process):
         """"""
@@ -126,11 +122,11 @@ class Pyularity(object):
                 self.new_modules.append(module)
         return True
 
-    def connect(self, server="tcp://127.0.0.1", port="5555"):
+    def connect(self):
         """"""
         context = zmq.Context()  # Create a ZeroMQ context
         self.socket = context.socket(zmq.REP)  # Create a REP (Reply) socket
-        self.socket.bind(f"{server}:{port}")  # Bind to a TCP address
+        self.socket.bind(f"{self.HOST}:{self.PORT}")  # Bind to a TCP address
         return self
 
     def get_hash(self, application_NCD):
@@ -153,15 +149,20 @@ class Pyularity(object):
         self.running = True
         return self
 
+    def install_failed(self):
+        """"""
+        return self
+
     def install_pip(self, location):
         """"""
-        if location.startswith("http"):
-            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
-        elif location.startswith("file"):
-            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]  # , "--no-deps"]
-        else:
-            cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
-        self.run(cmd)
+        cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
+        # if location.startswith("http"):
+        #     cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
+        # elif location.startswith("file"):
+        #     cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]  # , "--no-deps"]
+        # else:
+        #     cmd = [self.python_executable, "-m", "pip", "install", location, "--upgrade"]
+        self.run_cmd(cmd)
 
     def launch_app(self):
         """"""
@@ -173,11 +174,11 @@ class Pyularity(object):
             cnt = 0
             while not self.check_installed():  # checking for python modules installed
                 if cnt > 3:
-                    self.close()
+                    self.install_failed()
                     break
                 while True:
-                    self.start_process("install")
-                    if not self.check_process(self.start_process("Install")):
+                    process_id = self.start_process("install")
+                    if not self.check_process(process_id):
                         break
                 cnt += 1
             if self.check_update():
@@ -212,13 +213,18 @@ class Pyularity(object):
         if len(self.processes) > self.concurrent_limit:
             message = f"This Program is limited to {self.concurrent_limit} concurrent instances."
             message += f"Please close an instance to launch another."
-            gui.show(message)
+            self.main_app.dialog.show(message)
             return None
         script = f"python -m {self.app_name}"
         self.start_process(script, instance_id)
         return self
 
-    def run(self, cmd):
+    def run(self):
+        """"""
+        self.set_paths()
+        self.launch_app()
+
+    def run_cmd(self, cmd):
         """"""
         logma.info(f"Running Command: {cmd}")
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -226,9 +232,21 @@ class Pyularity(object):
         logma.info(f"Started process with PID: {process.pid}")
         return process.pid
 
+    def run_update(self):
+        """"""
+        self.set_virtual_environment()
+        self._update_modules()
+        return self
+
     def set_main_app(self, app):
         """"""
         self.main_app = app
+        return self
+
+    def set_paths(self):
+        """"""
+        self.app_path = join(expanduser("~"), ".local", "share", self.app_name)
+        self.venv_path = join(self.app_path, ".venv")
         return self
 
     def set_startup_app(self, app):
@@ -238,8 +256,6 @@ class Pyularity(object):
 
     def set_virtual_environment(self, name="linux"):
         """"""
-        logma.info(f"Set Virtual Environment {self.venv_path}")
-        self.package.setup_virtual_environment()
         if not exists(self.venv_path):
             raise Exception("Python Not Properly Installed for Pyularity based Application")
         if name == "linux":
@@ -249,7 +265,7 @@ class Pyularity(object):
         elif name == "windows":
             self.python_executable = join(self.venv_path, "Scripts", f"{self.PYTHON}.exe")
         else:
-            raise Exception(f"Unknown OS Type: {name}")
+            raise Exception(f"Unknown OS Type: {name} not yet implemented.")
         return self
 
     def start_process(self, script_path, instance_id=None, *args, **kwargs):
@@ -348,8 +364,8 @@ class Pyularity(object):
 
     def _update_modules(self):
         """"""
-        for module in self.manifest:
-            self.pip_install(module)
+        cmd = [self.python_executable, "-m", "pip", "install", "--upgrade", self.app_name]
+        self.run_cmd(cmd)
         return self
 
     def _verify(self):
